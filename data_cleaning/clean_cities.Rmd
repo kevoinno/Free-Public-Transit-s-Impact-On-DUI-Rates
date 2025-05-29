@@ -1,0 +1,132 @@
+---
+title: "Combining + Cleaning City Datasets"
+author: "Kevin Ngo"
+date: "2025-05-29"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(readr)
+library(lubridate)
+library(tjbal)
+
+## for plotting
+require(ggplot2)  
+## for parallel computing 
+require(foreach)  
+require(doParallel) 
+require(parallel)
+## for data manipulation 
+require(plyr)
+```
+## Reading city datasets in (control donors and treated city)
+
+```{r}
+cities <- c("austin.csv",
+              "bakersfield.csv",
+              "billings (montana).csv",
+              "casper (wyoming).csv",
+              "dallas.csv",
+              "el paso.csv",
+              "farmington (new mexico).csv",
+              "grand junction (colorado).csv",
+              "houston.csv",
+              "lawton (oklahoma).csv",
+              "louisville.csv",
+              "lubbock (texas).csv",
+              "memphis.csv",
+              "midland (texas).csv",
+              "nashville.csv",
+              "odessa (texas).csv",
+              "phoenix.csv",
+              "reno.csv",
+              "sacramento.csv",
+              "san antonio.csv",
+              "sierra vista (arizona).csv",
+              "spokane (washington).csv",
+              "wichita falls (texas).csv",
+              "wichita.csv",
+              "tulsa.csv",
+              "flagstaff.csv",
+              "cheyenne (wyoming).csv",
+              "atlanta.csv",
+              "las vegas.csv",
+              "riverside.csv",
+              "waco (texas).csv",
+              "albuquerque.csv")
+
+stopifnot(length(cities) == 32)
+
+# Read city data into a list
+DATA_PATH <- file.path("C:/Users/kevoi/OneDrive/Desktop/School/Year 3/POLI SCI 200C/final_project/data") # change path if needed
+FULL_PATHS <- file.path(DATA_PATH, cities)
+
+# getting city names to add city column to data
+city_names <- tools::file_path_sans_ext(basename(cities))  # removes ".csv"
+city_names <- str_replace_all(city_names, "\\s*\\(.*?\\)", "") |> str_to_title() # Note: this removes the (state)
+cities_data <- bind_rows(data_list)
+
+data_list <- mapply(function(file, city) {
+  df <- read_csv(file, col_types = cols(
+    Year = col_character(),
+    Month = col_character(),
+    Value = col_double()
+  ))
+  df$city <- city
+  df
+}, FULL_PATHS, city_names, SIMPLIFY = FALSE)
+```
+
+## Combining city datasets into 1 dataframe
+
+```{r}
+data <- bind_rows(data_list)
+```
+
+
+## Filter data to study period
+
+```{r}
+# Checking NA values
+data$Year |> is.na() |> sum()
+data$Month |> is.na() |> sum()
+data$Value |> is.na() |> sum() # Normal to have NA values in 2025
+data |> filter(is.na(Value) & Year != "2025")
+data$city |> is.na() |> sum()
+```
+
+```{r}
+# Filter data to between Nov 2020 and Jan 2025
+filtered_data <- data %>%
+  mutate(
+    month_date = my(paste(Month, Year)) 
+  ) %>%
+  filter(month_date >= ymd("2020-11-01") & month_date <= ymd("2025-01-31"))
+
+filtered_data$Year |> is.na() |> sum()
+filtered_data$Month |> is.na() |> sum()
+filtered_data$Value |> is.na() |> sum() # Normal to have NA values in 2025
+filtered_data |> filter(is.na(Value) & Year != "2025")
+filtered_data$city |> is.na() |> sum()
+
+glimpse(filtered_data)
+```
+
+## Preparing data to be in the correct form for tjbal
+```{r}
+# create binary variables for treated and time
+# treated = 1 if the city is the treated state (Albuquerque) and 0 otherwise
+# time = 1 if post-treatment period and 0 if pre
+filtered_data <- filtered_data |> 
+  mutate(treated = ifelse(city == "Albuquerque", 1, 0),
+         time = ifelse(month_date >= as.Date("2022-01-01"), 1, 0))
+```
+
+```{r}
+# output data to csv
+write_csv(filtered_data, "city_data.csv")
+```
+
+
+
