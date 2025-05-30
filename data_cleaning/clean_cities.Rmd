@@ -117,16 +117,22 @@ glimpse(filtered_data)
 ```{r}
 # create binary variables for treated and time
 # treated = 1 if the city is the treated state (Albuquerque) and 0 otherwise
-# time = 1 if post-treatment period and 0 if pre
-filtered_data <- filtered_data |> 
-  mutate(treated = ifelse(city == "Albuquerque", 1, 0),
-         time = ifelse(month_date >= as.Date("2022-01-01"), 1, 0))
+# time = YYYYMM
+filtered_data <- filtered_data |>
+  mutate(
+    treated = ifelse(city == "Albuquerque", 1, 0),
+    time = as.numeric(Year) * 100 + match(Month, month.abb)
+)
 ```
 
 ```{r}
 # output data to csv
 write_csv(filtered_data, "city_data.csv")
 ```
+
+
+
+
 
 
 
