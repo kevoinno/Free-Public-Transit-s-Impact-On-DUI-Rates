@@ -65,7 +65,6 @@ FULL_PATHS <- file.path(DATA_PATH, cities)
 # getting city names to add city column to data
 city_names <- tools::file_path_sans_ext(basename(cities))  # removes ".csv"
 city_names <- str_replace_all(city_names, "\\s*\\(.*?\\)", "") |> str_to_title() # Note: this removes the (state)
-cities_data <- bind_rows(data_list)
 
 data_list <- mapply(function(file, city) {
   df <- read_csv(file, col_types = cols(
@@ -116,19 +115,37 @@ glimpse(filtered_data)
 ## Preparing data to be in the correct form for tjbal
 ```{r}
 # create binary variables for treated and time
-# treated = 1 if the city is the treated state (Albuquerque) and 0 otherwise
+# treated = 1 if the city is the treated state (Albuquerque) in the posttreatment period and 0 otherwise
 # time = YYYYMM
 filtered_data <- filtered_data |>
   mutate(
-    treated = ifelse(city == "Albuquerque", 1, 0),
-    time = as.numeric(Year) * 100 + match(Month, month.abb)
+    time_period = as.numeric(Year) * 100 + match(Month, month.abb),
+    treated = ifelse(city == "Albuquerque" & time_period >= 202201, 1, 0)
 )
+
+filtered_data$time_period <- as.numeric(filtered_data$time_period)
 ```
 
 ```{r}
 # output data to csv
 write_csv(filtered_data, "city_data.csv")
 ```
+
+
+```{r}
+# testing viability of data
+result <- tjbal(Value~treated+time_period, data = filtered_data, 
+                index = c("city", "time_period"),
+                estimator = "mean")
+```
+
+
+
+
+
+
+
+
 
 
 
