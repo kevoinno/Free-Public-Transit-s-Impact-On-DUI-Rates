@@ -101,7 +101,7 @@ filtered_data <- data %>%
   mutate(
     month_date = my(paste(Month, Year)) 
   ) %>%
-  filter(month_date >= ymd("2020-11-01") & month_date <= ymd("2025-01-31"))
+  filter(month_date >= ymd("2020-11-01") & month_date <= ymd("2022-12-31"))
 
 filtered_data$Year |> is.na() |> sum()
 filtered_data$Month |> is.na() |> sum()
@@ -129,14 +129,6 @@ filtered_data$time_period <- as.numeric(filtered_data$time_period)
 ```{r}
 # output data to csv
 write_csv(filtered_data, "city_data.csv")
-```
-
-
-```{r}
-# testing viability of data
-result <- tjbal(Value~treated+time_period, data = filtered_data, 
-                index = c("city", "time_period"),
-                estimator = "mean")
 ```
 
 

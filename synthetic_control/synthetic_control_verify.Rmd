@@ -1,0 +1,136 @@
+---
+title: "Verify Synthetic Control (tjbal)"
+author: "Kevin Ngo"
+date: "2025-05-31"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(tjbal)
+library(panelView)
+```
+
+```{r}
+# Read in data
+DATA_PATH <- file.path("C:/Users/kevoi/OneDrive/Desktop/School/Year 3/POLI SCI 200C/final_project/data_cleaning", "city_data.csv")
+
+city_data <- read_csv(DATA_PATH) |> as.data.frame()
+```
+
+```{r}
+# add period_index
+city_data$period_index <- match(city_data$time_period, sort(unique(city_data$time_period)))
+```
+
+
+```{r}
+# Visualizing Cities and Treatment Status 
+panelview(Value ~ treated, data = city_data, 
+          index = c("city","period_index"), xlab = "Time Period", 
+          ylab = "City", axis.lab.gap = c(0,1), by.timing = TRUE)
+```
+
+```{r}
+# Calculate ATT
+out.mbal <- tjbal(Value ~ treated, data = city_data,
+  index = c("city","period_index"), demean = TRUE, estimator = "mean",
+  Y.match.npre = 14,   # specify that we are matching on 14 pre-treatment outcome time periods 
+  vce = "bootstrap"
+  )
+
+print(out.mbal)
+
+actual_att <- out.mbal$att.avg
+```
+
+```{r}
+# Plotting the Treated vs Counterfactual fit
+plot(out.mbal, type = "ct", raw = "all")
+```
+```{r}
+# ATT over time
+plot(out.mbal)
+```
+```{r}
+# plot of weights
+plot(out.mbal, type = "weights")
+```
+```{r}
+out.mbal$weights 
+```
+
+
+```{r}
+# Placebo Test: run every control city as if it were treated
+placebo_atts <- rep(NA, city_data |> 
+                      filter(city != "Albuquerque") |>  
+                      unique() |> 
+                      length())
+
+control_units <- city_data |> 
+  filter(city != "Albuquerque") |> 
+  pull(city) |> 
+  unique()
+
+for (i in seq_along(control_units)) {
+  # Get a placebo dataset of just controls
+  placebo_city_data <- city_data |> filter(city != "Albuquerque")
+  
+  # Make the current placebo the placebo treatment
+  placebo_city_data[placebo_city_data$city == control_units[i] & placebo_city_data$period_index > 14, "treated"] <- 1
+  
+  # Estimate ATT
+  placebo_result <- tjbal(Value ~ treated, data = placebo_city_data,
+  index = c("city","period_index"), demean = FALSE, estimator = "mean",
+  Y.match.npre = 14   # specify that we are matching on 14 pre-treatment outcome time periods 
+  )
+  
+  # Store in ATT vector
+  placebo_atts[i] <- placebo_result$att.avg
+} 
+```
+```{r}
+# plot results of placebo test
+df <- data.frame(placebo_atts = placebo_atts)
+
+ggplot(df, aes(x = placebo_atts)) +
+  geom_histogram() +
+  geom_vline(aes(xintercept = actual_att), color = "red", linetype = "dashed") +
+  labs(
+    title = "Placebo Distribution of ATT Estimates",
+    x = "ATT Estimate",
+    y = "Frequency"
+  ) +
+  theme_minimal() +
+  annotate("text", x = actual_att, 
+           y = max(table(cut(df$placebo_att, breaks = 20))) + 0.5, 
+           label = "Actual ATT", 
+           color = "red", hjust = -0.1)
+```
+
+```{r}
+# get a p-value
+p_val <- sum(abs(placebo_atts) >= abs(actual_att)) / length(placebo_atts)
+print(p_val)
+```
+Testing a DiD Model (did not work)
+
+```{r}
+summary(city_data$Value)
+test_city <- city_data |> filter(city %in% c("Bakersfield", "Albuquerque"))
+
+ggplot(test_city, aes(x = period_index, y = Value, color = city)) +
+  geom_line() +
+  geom_vline(xintercept = 15, color = "red", linetype = "dashed")
+```
+```{r}
+out.did <- tjbal(Value ~ treated, data = test_city,   
+  index = c("city","period_index"), Y.match.npre = 0, 
+  demean = TRUE, vce = "boot", nsims = 200)
+```
+
+
+
+
+
