@@ -34,7 +34,7 @@ panelview(Value ~ treated, data = city_data,
 ```{r}
 # Calculate ATT
 out.mbal <- tjbal(Value ~ treated, data = city_data,
-  index = c("city","period_index"), demean = TRUE, estimator = "mean",
+  index = c("city","period_index"), demean = FALSE, estimator = "mean",
   Y.match.npre = 14,   # specify that we are matching on 14 pre-treatment outcome time periods 
   vce = "bootstrap"
   )
